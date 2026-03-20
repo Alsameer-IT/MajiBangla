@@ -211,10 +211,11 @@
                 <span class="ccolon">:</span>
                 <span class="cval" id="customerName"></span>
             </div>
-            <div class="cfield" id="nationalIdRow">
-                <span class="clabel" id="idLabel">National ID</span>
+            <!-- ID row: label and value set dynamically; hidden if neither field has data -->
+            <div class="cfield" id="idRow">
+                <span class="clabel" id="idLabel"></span>
                 <span class="ccolon">:</span>
-                <span class="cval" id="nationalId"></span>
+                <span class="cval" id="idValue"></span>
             </div>
             <div class="cfield">
                 <span class="clabel">Mobile No</span>
@@ -342,22 +343,20 @@
     };
 
     const payoutCountryRaw = get('payoutCountry');
-    const currency = currencyMap[payoutCountryRaw.toLowerCase().trim()] || 'BDT';
-    const channelRaw   = get('paymentChannel').toUpperCase();
+    const currency    = currencyMap[payoutCountryRaw.toLowerCase().trim()] || 'BDT';
+    const channelRaw  = get('paymentChannel').toUpperCase();
     const isCashPickup = channelRaw.includes('CASH');
 
-    // ── FIX: Txn Ref No — add prefix "313", X already removed in index.html ──
+    // Txn Ref No — add prefix "313"; trailing X already removed in index.html
     const txnRefRaw = get('ref') !== 'N/A' ? get('ref') : get('txnRefNo');
     const txnRef    = txnRefRaw && txnRefRaw !== 'N/A' ? `313${txnRefRaw}` : '';
 
     // Date comes directly from index.html (extracted from PDF)
     const txnDate = get('date');
 
-    // ── FIX: Payout Code & Payout Pin — hyphens already stripped in index.html ──
-    // pin param == payoutCode param (both cleaned in index.html)
-    const pinVal  = get('pin')        !== 'N/A' ? get('pin')        : '';
-    const codeVal = get('payoutCode') !== 'N/A' ? get('payoutCode') : pinVal;
-    // Both should be identical (same cleaned value); ensure pin also falls back to codeVal
+    // Payout Code & Payout Pin — hyphens already stripped in index.html
+    const pinVal   = get('pin')        !== 'N/A' ? get('pin')        : '';
+    const codeVal  = get('payoutCode') !== 'N/A' ? get('payoutCode') : pinVal;
     const cleanPin  = pinVal  || codeVal;
     const cleanCode = codeVal || pinVal;
 
@@ -388,43 +387,38 @@
             makeField('Payout Code',    cleanCode,   true);
     }
 
-    /* ── Customer ── */
+    /* ── Customer Name & Mobile ── */
     document.getElementById('customerName').textContent   = uc(get('senderName'));
     document.getElementById('customerMobile').textContent = display(get('senderMobile') !== 'N/A' ? get('senderMobile') : get('customerMobile'));
     document.getElementById('nationality').textContent    = uc(get('nationality') !== 'N/A' ? get('nationality') : payoutCountryRaw);
 
-    // ── FIX: Smart ID display — show whichever field has actual data ──────────
-    // For Cash Pickup: prefer National ID; for bank transfer: prefer Passport
-    const idLabel         = document.getElementById('idLabel');
-    const idVal           = document.getElementById('nationalId');
-    const nationalIdParam = get('nationalId');  // IC No from index
-    const passportParam   = get('passport');    // Passport No from index
+    /* ── SMART ID DISPLAY ────────────────────────────────────────────────────
+       Rule:
+         • If National ID has a value  → show "National ID : 51-237267"  (hide passport)
+         • If National ID is empty     → show "Passport    : T2398329"   (use passport)
+         • If both are empty           → hide the row entirely
+    ── */
+    const nationalIdParam = get('nationalId');
+    const passportParam   = get('passport');
 
-    const hasNationalId = nationalIdParam && nationalIdParam !== 'N/A' && nationalIdParam.length > 0;
-    const hasPassport   = passportParam   && passportParam   !== 'N/A' && passportParam.length   > 0;
+    const hasNationalId = nationalIdParam !== 'N/A' && nationalIdParam.length > 0;
+    const hasPassport   = passportParam   !== 'N/A' && passportParam.length   > 0;
 
-    if (isCashPickup) {
-        // Cash pickup: show National ID if available, else Passport
-        if (hasNationalId) {
-            idLabel.textContent = 'National ID';
-            idVal.textContent   = uc(nationalIdParam);
-        } else if (hasPassport) {
-            idLabel.textContent = 'Passport';
-            idVal.textContent   = uc(passportParam);
-        } else {
-            document.getElementById('nationalIdRow').classList.add('hidden');
-        }
+    const idRow   = document.getElementById('idRow');
+    const idLabel = document.getElementById('idLabel');
+    const idValue = document.getElementById('idValue');
+
+    if (hasNationalId) {
+        // National ID has data — show it, ignore passport
+        idLabel.textContent = 'National ID';
+        idValue.textContent = uc(nationalIdParam);
+    } else if (hasPassport) {
+        // National ID is empty — fall back to passport
+        idLabel.textContent = 'Passport';
+        idValue.textContent = uc(passportParam);
     } else {
-        // Bank transfer: show Passport if available, else National ID
-        if (hasPassport) {
-            idLabel.textContent = 'Passport';
-            idVal.textContent   = uc(passportParam);
-        } else if (hasNationalId) {
-            idLabel.textContent = 'National ID';
-            idVal.textContent   = uc(nationalIdParam);
-        } else {
-            document.getElementById('nationalIdRow').classList.add('hidden');
-        }
+        // Neither field has data — hide the row
+        idRow.classList.add('hidden');
     }
 
     /* ── ADDRESS REFORMATTER ──
@@ -493,11 +487,11 @@
         const cloneBtn = clone.querySelector('#downloadBtn');
         if (cloneBtn) cloneBtn.remove();
 
-        clone.style.width       = '794px';
-        clone.style.margin      = '0 auto';
-        clone.style.padding     = '40px 20px';
-        clone.style.boxSizing   = 'border-box';
-        clone.style.background  = '#fff';
+        clone.style.width           = '794px';
+        clone.style.margin          = '0 auto';
+        clone.style.padding         = '40px 20px';
+        clone.style.boxSizing       = 'border-box';
+        clone.style.background      = '#fff';
         clone.style.pageBreakInside = 'avoid';
 
         const wrapper = document.createElement('div');
