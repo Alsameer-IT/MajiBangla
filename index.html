@@ -89,13 +89,13 @@
 
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
-        const fileInput = document.getElementById('fileInput');
-        const fileNameDisplay = document.getElementById('fileName');
+        const fileInput        = document.getElementById('fileInput');
+        const fileNameDisplay  = document.getElementById('fileName');
         const receiptContainer = document.getElementById('receiptContainer');
         const loadingIndicator = document.getElementById('loading');
-        const downloadBtn = document.getElementById('downloadBtn');
-        const resetBtn = document.getElementById('resetBtn');
-        const countryError = document.getElementById('countryError');
+        const downloadBtn      = document.getElementById('downloadBtn');
+        const resetBtn         = document.getElementById('resetBtn');
+        const countryError     = document.getElementById('countryError');
 
         fileInput.addEventListener('change', async (e) => {
             const file = e.target.files[0];
@@ -144,134 +144,140 @@
             const text = textContent.items.map(item => item.str).join('\n').replace(/\s*:\s*/g, ': ');
 
             // Transaction Details
-            // FIX: Use 'Date :' pattern that matches "Date : 14 Mar 2026" and avoid matching sub-strings
-            const refNoMatch = text.match(/Ref No: ([^\n]+)/i);
-            const dateMatch = text.match(/(?:^|\n)\s*Date: ([^\n]+)/i);
+            const refNoMatch  = text.match(/Ref No: ([^\n]+)/i);
+            const dateMatch   = text.match(/(?:^|\n)\s*Date: ([^\n]+)/i);
 
             // Sender Details
-            const senderNameMatch = text.match(/Sender Name: ([^\n]+)/i);
-            const passportNoMatch = text.match(/Sender Passport No: ([^\n]+)/i);
-            const icNoMatch = text.match(/Sender IC No: ([^\n]+)/i);
+            const senderNameMatch    = text.match(/Sender Name: ([^\n]+)/i);
+            const passportNoMatch    = text.match(/Sender Passport No: ([^\n]+)/i);
+            const icNoMatch          = text.match(/Sender IC No: ([^\n]+)/i);
             const senderAddressMatch = text.match(/Sender Address: ([\s\S]*?)(?=(?:Sender Citizenship|Sender IC No|Sender Passport No|$))/i);
-            const citizenshipMatch = text.match(/Sender Citizenship: ([^\n]+)/i);
-            const senderMobileMatch = text.match(/Sender Mobile No: (\d+)/i);
+            const citizenshipMatch   = text.match(/Sender Citizenship: ([^\n]+)/i);
+            const senderMobileMatch  = text.match(/Sender Mobile No: (\d+)/i);
 
             // Beneficiary Details
-            const beneficiaryNameMatch = text.match(/Beneficiary Name: ([^\n]+)/i);
+            const beneficiaryNameMatch   = text.match(/Beneficiary Name: ([^\n]+)/i);
             const beneficiaryMobileMatch = text.match(/Beneficiary Mobile No: (\d+)/i);
-            const bankNameMatch = text.match(/Beneficiary Bank Name: ([^\n]+)/i);
-            const accountNoMatch = text.match(/Beneficiary Account No: ([^\n]+)/i);
-            const bankBranchMatch = text.match(/Beneficiary Bank Branch: ([^\n]+)/i);
-            const ifscRoutingNoMatch = text.match(/IFSC \/ Routing No: ([^\n]+)/i);
+            const bankNameMatch          = text.match(/Beneficiary Bank Name: ([^\n]+)/i);
+            const accountNoMatch         = text.match(/Beneficiary Account No: ([^\n]+)/i);
+            const bankBranchMatch        = text.match(/Beneficiary Bank Branch: ([^\n]+)/i);
+            const ifscRoutingNoMatch     = text.match(/IFSC \/ Routing No: ([^\n]+)/i);
 
             // Payment Details
-            const paymentChannelMatch = text.match(/Payment Channel: ([^\n]+)/i);
-            const cashPickupAtMatch = text.match(/Cash Pick up at: ([^\n]+)/i);
-            const payoutCodeMatch = text.match(/Payout Code: ([^\n]+)/i);
-            const sourceMatch = text.match(/Source: ([^\n]+)/i);
-            const purposeMatch = text.match(/Purpose: ([^\n]+)/i);
+            const paymentChannelMatch     = text.match(/Payment Channel: ([^\n]+)/i);
+            const cashPickupAtMatch       = text.match(/Cash Pick up at: ([^\n]+)/i);
+            const payoutCodeMatch         = text.match(/Payout Code: ([^\n]+)/i);
+            const sourceMatch             = text.match(/Source: ([^\n]+)/i);
+            const purposeMatch            = text.match(/Purpose: ([^\n]+)/i);
             const destinationCountryMatch = text.match(/Destination Country: ([^\n]+)/i);
-            const payoutAmountMatch = text.match(/Payout Amount to Beneficiary: ([\d,]+\.\d{2})/i);
-            const exchangeRateMatch = text.match(/Exchange Rate: ([\d.]+)/i);
+            const payoutAmountMatch       = text.match(/Payout Amount to Beneficiary: ([\d,]+\.\d{2})/i);
+            const exchangeRateMatch       = text.match(/Exchange Rate: ([\d.]+)/i);
+            const sendAmountMatch         = text.match(/Send Amount\s*(?:in BND|\(BND\))\s*:\s*BND([\d,]+\.\d{2})/i);
+            const serviceFeeMatch         = text.match(/\n\s*SERVICE FEE\s*([\d,]+\.\d{2})/i);
+            const totalMatch              = text.match(/Total\s*BND([\d,]+\.\d{2})/i);
 
-            // FIX: Match both "Send Amount in BND: BND1,486.00" AND "Send Amount (BND): BND1,486.00"
-            const sendAmountMatch = text.match(/Send Amount\s*(?:in BND|\(BND\))\s*:\s*BND([\d,]+\.\d{2})/i);
+            // Remove trailing X from Ref No
+            const refNoRaw = refNoMatch ? refNoMatch[1].trim() : 'N/A';
+            const refNo    = refNoRaw.replace(/X$/i, '');
 
-            const serviceFeeMatch = text.match(/\n\s*SERVICE FEE\s*([\d,]+\.\d{2})/i);
-            const totalMatch = text.match(/Total\s*BND([\d,]+\.\d{2})/i);
+            // Extract both ID fields — pass both to receipt; receipt.html decides which to show
+            const passportNoRaw = passportNoMatch ? passportNoMatch[1].trim() : '';
+            const icNoRaw       = icNoMatch       ? icNoMatch[1].trim()       : '';
+            // Keep hyphens in IC No for display (e.g. 51-237267), remove only other special chars
+            const icNoFormatted = icNoRaw.replace(/[^a-zA-Z0-9\-]/g, '');
 
-            // Format IC No by removing special characters and spaces
-            const icNoRaw = icNoMatch ? icNoMatch[1].trim() : 'N/A';
-            const icNoFormatted = icNoRaw.replace(/[^a-zA-Z0-9]/g, '');
+            const passportNo = passportNoRaw || 'N/A';
+            const icNo       = icNoFormatted  || 'N/A';
 
-            // Parse Send Amount and Service Fee for total calculation
-            const sendAmountValue = sendAmountMatch ? parseFloat(sendAmountMatch[1].replace(',', '')) : 0;
-            const serviceFeeValue = serviceFeeMatch ? parseFloat(serviceFeeMatch[1].replace(',', '')) : 0;
-            const totalPaidValue = totalMatch ? parseFloat(totalMatch[1].replace(',', '')) : (sendAmountValue + serviceFeeValue);
+            // Strip hyphens from Payout Code / PIN
+            const payoutCodeRaw = payoutCodeMatch ? payoutCodeMatch[1].trim() : 'N/A';
+            const payoutCode    = payoutCodeRaw.replace(/-/g, '');
+
+            // Parse amounts
+            const sendAmountValue    = sendAmountMatch ? parseFloat(sendAmountMatch[1].replace(/,/g, '')) : 0;
+            const serviceFeeValue    = serviceFeeMatch ? parseFloat(serviceFeeMatch[1].replace(/,/g, '')) : 0;
+            const totalPaidValue     = totalMatch      ? parseFloat(totalMatch[1].replace(/,/g, ''))      : (sendAmountValue + serviceFeeValue);
             const totalPaidFormatted = totalPaidValue.toFixed(2);
 
             return {
-                refNo: refNoMatch ? refNoMatch[1].trim() : 'N/A',
-                date: dateMatch ? dateMatch[1].trim() : 'N/A',
-                senderName: senderNameMatch ? senderNameMatch[1].trim() : 'N/A',
-                passportNo: passportNoMatch ? passportNoMatch[1].trim() : 'N/A',
-                icNo: icNoFormatted,
-                senderAddress: senderAddressMatch ? senderAddressMatch[1].trim().replace(/\n/g, ', ') : 'N/A',
-                citizenship: citizenshipMatch ? citizenshipMatch[1].trim() : 'N/A',
-                senderMobile: senderMobileMatch ? senderMobileMatch[1].trim() : 'N/A',
-                beneficiaryName: beneficiaryNameMatch ? beneficiaryNameMatch[1].trim() : 'N/A',
-                beneficiaryMobile: beneficiaryMobileMatch ? beneficiaryMobileMatch[1].trim() : 'N/A',
-                bankName: bankNameMatch ? bankNameMatch[1].trim() : 'N/A',
-                accountNo: accountNoMatch ? accountNoMatch[1].trim() : 'N/A',
-                bankBranch: bankBranchMatch ? bankBranchMatch[1].trim() : 'N/A',
-                ifscRoutingNo: ifscRoutingNoMatch ? ifscRoutingNoMatch[1].trim() : 'N/A',
-                paymentChannel: paymentChannelMatch ? paymentChannelMatch[1].trim() : 'N/A',
-                cashPickupAt: cashPickupAtMatch ? cashPickupAtMatch[1].trim() : 'N/A',
-                payoutCode: payoutCodeMatch ? payoutCodeMatch[1].trim() : 'N/A',
-                source: sourceMatch ? sourceMatch[1].trim() : 'N/A',
-                purpose: purposeMatch ? purposeMatch[1].trim() : 'N/A',
-                destinationCountry: destinationCountryMatch ? destinationCountryMatch[1].trim() : 'N/A',
-                payoutAmount: payoutAmountMatch ? `${payoutAmountMatch[1]} BDT` : 'N/A',
-                exchangeRate: exchangeRateMatch ? exchangeRateMatch[1] : 'N/A',
-                sendAmount: sendAmountMatch ? sendAmountMatch[1] : 'N/A',
-                serviceFee: serviceFeeMatch ? serviceFeeMatch[1] : 'N/A',
-                totalPaid: totalPaidFormatted
+                refNo,
+                date:               dateMatch              ? dateMatch[1].trim()              : 'N/A',
+                senderName:         senderNameMatch        ? senderNameMatch[1].trim()        : 'N/A',
+                passportNo,
+                icNo,
+                senderAddress:      senderAddressMatch     ? senderAddressMatch[1].trim().replace(/\n/g, ', ') : 'N/A',
+                citizenship:        citizenshipMatch       ? citizenshipMatch[1].trim()       : 'N/A',
+                senderMobile:       senderMobileMatch      ? senderMobileMatch[1].trim()      : 'N/A',
+                beneficiaryName:    beneficiaryNameMatch   ? beneficiaryNameMatch[1].trim()   : 'N/A',
+                beneficiaryMobile:  beneficiaryMobileMatch ? beneficiaryMobileMatch[1].trim() : 'N/A',
+                bankName:           bankNameMatch          ? bankNameMatch[1].trim()          : 'N/A',
+                accountNo:          accountNoMatch         ? accountNoMatch[1].trim()         : 'N/A',
+                bankBranch:         bankBranchMatch        ? bankBranchMatch[1].trim()        : 'N/A',
+                ifscRoutingNo:      ifscRoutingNoMatch     ? ifscRoutingNoMatch[1].trim()     : 'N/A',
+                paymentChannel:     paymentChannelMatch    ? paymentChannelMatch[1].trim()    : 'N/A',
+                cashPickupAt:       cashPickupAtMatch      ? cashPickupAtMatch[1].trim()      : 'N/A',
+                payoutCode,
+                source:             sourceMatch            ? sourceMatch[1].trim()            : 'N/A',
+                purpose:            purposeMatch           ? purposeMatch[1].trim()           : 'N/A',
+                destinationCountry: destinationCountryMatch? destinationCountryMatch[1].trim(): 'N/A',
+                payoutAmount:       payoutAmountMatch      ? `${payoutAmountMatch[1]} BDT`    : 'N/A',
+                exchangeRate:       exchangeRateMatch      ? exchangeRateMatch[1]             : 'N/A',
+                sendAmount:         sendAmountMatch        ? sendAmountMatch[1]               : 'N/A',
+                serviceFee:         serviceFeeMatch        ? serviceFeeMatch[1]               : 'N/A',
+                totalPaid:          totalPaidFormatted
             };
         }
 
         function populateReceipt(data) {
-            document.getElementById('refNo').textContent = data.refNo;
-            document.getElementById('date').textContent = data.date;
-            document.getElementById('senderName').textContent = data.senderName;
-            document.getElementById('passportNo').textContent = data.passportNo;
-            document.getElementById('icNo').textContent = data.icNo;
-            document.getElementById('senderAddress').innerHTML = data.senderAddress.replace(/, /g, '<br>');
-            document.getElementById('citizenship').textContent = data.citizenship;
-            document.getElementById('senderMobile').textContent = data.senderMobile;
-            document.getElementById('beneficiaryName').textContent = data.beneficiaryName;
+            document.getElementById('refNo').textContent             = data.refNo;
+            document.getElementById('date').textContent              = data.date;
+            document.getElementById('senderName').textContent        = data.senderName;
+            document.getElementById('passportNo').textContent        = data.passportNo;
+            document.getElementById('icNo').textContent              = data.icNo;
+            document.getElementById('senderAddress').innerHTML       = data.senderAddress.replace(/, /g, '<br>');
+            document.getElementById('citizenship').textContent       = data.citizenship;
+            document.getElementById('senderMobile').textContent      = data.senderMobile;
+            document.getElementById('beneficiaryName').textContent   = data.beneficiaryName;
             document.getElementById('beneficiaryMobile').textContent = data.beneficiaryMobile;
-            document.getElementById('bankName').textContent = data.bankName;
-            document.getElementById('accountNo').textContent = data.accountNo;
-            document.getElementById('bankBranch').textContent = data.bankBranch;
-            document.getElementById('ifscRoutingNo').textContent = data.ifscRoutingNo;
-            document.getElementById('paymentChannel').textContent = data.paymentChannel;
-            document.getElementById('cashPickupAt').textContent = data.cashPickupAt;
-            document.getElementById('payoutCode').textContent = data.payoutCode;
-            document.getElementById('source').textContent = data.source;
-            document.getElementById('purpose').textContent = data.purpose;
-            document.getElementById('destinationCountry').textContent = data.destinationCountry;
-            document.getElementById('payoutAmount').textContent = data.payoutAmount;
-            document.getElementById('exchangeRate').textContent = data.exchangeRate ? `${data.exchangeRate} BDT` : 'N/A';
-            document.getElementById('sendAmount').textContent = data.sendAmount ? `${data.sendAmount} BND` : 'N/A';
-            document.getElementById('serviceFee').textContent = data.serviceFee ? `${data.serviceFee} BND` : 'N/A';
-            document.getElementById('totalPaid').textContent = `Total Paid in BND: ${data.totalPaid} BND`;
+            document.getElementById('bankName').textContent          = data.bankName;
+            document.getElementById('accountNo').textContent         = data.accountNo;
+            document.getElementById('bankBranch').textContent        = data.bankBranch;
+            document.getElementById('ifscRoutingNo').textContent     = data.ifscRoutingNo;
+            document.getElementById('paymentChannel').textContent    = data.paymentChannel;
+            document.getElementById('cashPickupAt').textContent      = data.cashPickupAt;
+            document.getElementById('payoutCode').textContent        = data.payoutCode;
+            document.getElementById('source').textContent            = data.source;
+            document.getElementById('purpose').textContent           = data.purpose;
+            document.getElementById('destinationCountry').textContent= data.destinationCountry;
+            document.getElementById('payoutAmount').textContent      = data.payoutAmount;
+            document.getElementById('exchangeRate').textContent      = data.exchangeRate ? `${data.exchangeRate} BDT` : 'N/A';
+            document.getElementById('sendAmount').textContent        = data.sendAmount   ? `${data.sendAmount} BND`   : 'N/A';
+            document.getElementById('serviceFee').textContent        = data.serviceFee   ? `${data.serviceFee} BND`  : 'N/A';
+            document.getElementById('totalPaid').textContent         = `Total Paid in BND: ${data.totalPaid} BND`;
             document.getElementById('downloadBtn').onclick = () => downloadReceipt(data);
         }
 
         function downloadReceipt(data) {
-            const now = new Date();
-            const bruneiTime = new Date(now.getTime() + (8 * 60 * 60 * 1000));
-            const formattedDate = bruneiTime.toISOString().replace('T', ' ').replace(/\.\d+Z/, '') + ' BNT';
-
             const receiptUrl = 'receipt.html?' + new URLSearchParams({
-                ref:             data.refNo,
-                date:            formattedDate,
-                payoutCode:      data.payoutCode,
-                paymentChannel:  data.paymentChannel,
-                senderName:      data.senderName,
-                senderMobile:    data.senderMobile,
-                passport:        data.passportNo,
-                nationalId:      data.icNo,
-                address:         data.senderAddress,
-                nationality:     data.citizenship,
-                amount:          data.payoutAmount.replace(/\s*BDT$/i, '').trim(),
-                exchangeRate:    data.exchangeRate,
-                payInAmount:     data.sendAmount,
-                serviceCharge:   data.serviceFee,
-                totalAmount:     data.totalPaid,
-                source:          data.source,
-                purpose:         data.purpose,
-                payoutCountry:   data.destinationCountry,
+                ref:               data.refNo,          // trailing X already removed
+                date:              data.date,            // date extracted from PDF
+                payoutCode:        data.payoutCode,      // hyphens already removed
+                pin:               data.payoutCode,      // same cleaned value for payout pin
+                paymentChannel:    data.paymentChannel,
+                senderName:        data.senderName,
+                senderMobile:      data.senderMobile,
+                passport:          data.passportNo,      // pass both; receipt decides which to show
+                nationalId:        data.icNo,            // pass both; receipt decides which to show
+                address:           data.senderAddress,
+                nationality:       data.citizenship,
+                amount:            data.payoutAmount.replace(/\s*BDT$/i, '').trim(),
+                exchangeRate:      data.exchangeRate,
+                payInAmount:       data.sendAmount,
+                serviceCharge:     data.serviceFee,
+                totalAmount:       data.totalPaid,
+                source:            data.source,
+                purpose:           data.purpose,
+                payoutCountry:     data.destinationCountry,
                 beneficiaryName:   data.beneficiaryName,
                 beneficiaryMobile: data.beneficiaryMobile,
                 bankName:          data.bankName,
