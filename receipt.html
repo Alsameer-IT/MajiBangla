@@ -211,14 +211,14 @@
                 <span class="ccolon">:</span>
                 <span class="cval" id="customerName"></span>
             </div>
-            <!-- National ID row: hidden if no value -->
-            <div class="cfield" id="nationalIdRow">
+            <!-- National ID row: shown only when passport is absent AND nationalId has value -->
+            <div class="cfield hidden" id="nationalIdRow">
                 <span class="clabel">National ID</span>
                 <span class="ccolon">:</span>
                 <span class="cval" id="nationalIdValue"></span>
             </div>
-            <!-- Passport row: hidden if no value -->
-            <div class="cfield" id="passportRow">
+            <!-- Passport row: shown only when passport has a real value -->
+            <div class="cfield hidden" id="passportRow">
                 <span class="clabel">Passport</span>
                 <span class="ccolon">:</span>
                 <span class="cval" id="passportValue"></span>
@@ -330,8 +330,11 @@
 <script>
     const p   = new URLSearchParams(window.location.search);
     const get = (key) => (p.get(key) || '').trim() || 'N/A';
-    const display = (val) => val === 'N/A' ? '' : val;
+    const display = (val) => (val === 'N/A' || val === '' ) ? '' : val;
     const uc  = (s)   => s === 'N/A' ? '' : s.toUpperCase();
+
+    /* Helper: returns empty string if value is N/A or blank, otherwise the value */
+    const safeVal = (val) => (!val || val.toUpperCase() === 'N/A') ? '' : val;
 
     const addCommas = (str) => {
         if (!str || str === 'N/A') return '';
@@ -398,31 +401,31 @@
     document.getElementById('customerMobile').textContent = display(get('senderMobile') !== 'N/A' ? get('senderMobile') : get('customerMobile'));
     document.getElementById('nationality').textContent    = uc(get('nationality') !== 'N/A' ? get('nationality') : payoutCountryRaw);
 
-    /* ── ID DISPLAY — two separate rows ─────────────────────────────────────
-       National ID row : visible only when nationalId param has a value
-       Passport row    : visible only when passport param has a value
-       Each row is hidden independently if its value is empty / N/A
+    /* ── ID DISPLAY LOGIC ──────────────────────────────────────────────────────
+       Priority rule:
+         1. If passport has a real value  → show ONLY passport row, hide national ID
+         2. If passport is N/A / empty    → check national ID:
+              - If national ID has a real value → show national ID row
+              - Otherwise                       → hide both rows
     ── */
-    const nationalIdParam = get('nationalId');
-    const passportParam   = get('passport');
+    const nationalIdParam = (p.get('nationalId') || '').trim();
+    const passportParam   = (p.get('passport')   || '').trim();
 
-    const hasNationalId = nationalIdParam.trim().length > 0 && nationalIdParam.toUpperCase() !== 'N/A';
-    const hasPassport   = passportParam.trim().length   > 0 && passportParam.toUpperCase()   !== 'N/A';
-
-    const nationalIdRow = document.getElementById('nationalIdRow');
-    const passportRow   = document.getElementById('passportRow');
-
-    if (hasNationalId) {
-        document.getElementById('nationalIdValue').textContent = uc(nationalIdParam);
-    } else {
-        nationalIdRow.classList.add('hidden');
-    }
+    const hasPassport   = passportParam.length   > 0 && passportParam.toUpperCase()   !== 'N/A';
+    const hasNationalId = nationalIdParam.length > 0 && nationalIdParam.toUpperCase() !== 'N/A';
 
     if (hasPassport) {
-        document.getElementById('passportValue').textContent = uc(passportParam);
-    } else {
-        passportRow.classList.add('hidden');
+        // Show passport row only
+        document.getElementById('passportValue').textContent = passportParam.toUpperCase();
+        document.getElementById('passportRow').classList.remove('hidden');
+        // National ID stays hidden
+    } else if (hasNationalId) {
+        // Passport absent — fall back to national ID
+        document.getElementById('nationalIdValue').textContent = nationalIdParam.toUpperCase();
+        document.getElementById('nationalIdRow').classList.remove('hidden');
+        // Passport row stays hidden
     }
+    // else: both stay hidden
 
     /* ── ADDRESS REFORMATTER ──
        Input:  DISTRICT, VILLAGE, STREET, COUNTRY  (4+ parts)
@@ -476,8 +479,15 @@
     document.getElementById('beneMobile').textContent  = display(get('beneficiaryMobile'));
     document.getElementById('beneCountry').textContent = uc(payoutCountryRaw);
     document.getElementById('bankName').textContent    = uc(get('bankName'));
-    document.getElementById('bankAcNo').textContent    = display(get('accountNo') !== 'N/A' ? get('accountNo') : get('bankAcNo'));
-    document.getElementById('ifscCode').textContent    = display(get('ifscCode') !== 'N/A' ? get('ifscCode') : get('routingNumber'));
+
+    // Bank A/C No — blank if N/A, NA, or missing
+    const isNA = (val) => !val || /^n\/?a$/i.test(val.trim());
+    const bankAcRaw = (p.get('accountNo') || p.get('bankAcNo') || '').trim();
+    document.getElementById('bankAcNo').textContent = isNA(bankAcRaw) ? '' : bankAcRaw;
+
+    // IFSC/Bank Code — blank if N/A, NA, or missing
+    const ifscRaw = (p.get('ifscCode') || p.get('routingNumber') || '').trim();
+    document.getElementById('ifscCode').textContent = isNA(ifscRaw) ? '' : ifscRaw;
 
     /* ── Download PDF ── */
     document.getElementById('downloadBtn').addEventListener('click', () => {
@@ -530,4 +540,3 @@
 </script>
 </body>
 </html>
-
