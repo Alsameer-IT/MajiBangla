@@ -411,21 +411,19 @@
     const nationalIdParam = (p.get('nationalId') || '').trim();
     const passportParam   = (p.get('passport')   || '').trim();
 
-    const hasPassport   = passportParam.length   > 0 && passportParam.toUpperCase()   !== 'N/A';
-    const hasNationalId = nationalIdParam.length > 0 && nationalIdParam.toUpperCase() !== 'N/A';
+    // isRealVal: true only when non-empty AND not any form of "N/A" or "NA"
+    const isRealVal = (val) => val.length > 0 && !/^n\/?a$/i.test(val);
 
-    if (hasPassport) {
-        // Show passport row only
+    // Each row shown independently — both can appear if both have values
+    if (isRealVal(passportParam)) {
         document.getElementById('passportValue').textContent = passportParam.toUpperCase();
         document.getElementById('passportRow').classList.remove('hidden');
-        // National ID stays hidden
-    } else if (hasNationalId) {
-        // Passport absent — fall back to national ID
+    }
+    if (isRealVal(nationalIdParam)) {
         document.getElementById('nationalIdValue').textContent = nationalIdParam.toUpperCase();
         document.getElementById('nationalIdRow').classList.remove('hidden');
-        // Passport row stays hidden
     }
-    // else: both stay hidden
+    // If neither has a value, both rows stay hidden (default)
 
     /* ── ADDRESS REFORMATTER ──
        Input:  DISTRICT, VILLAGE, STREET, COUNTRY  (4+ parts)
