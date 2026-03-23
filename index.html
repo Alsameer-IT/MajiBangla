@@ -136,6 +136,14 @@
             countryError.style.display = 'none';
         });
 
+        /* Helper: returns '' if extracted value is blank or looks like N/A */
+        function cleanId(val) {
+            if (!val) return '';
+            const t = val.trim();
+            if (/^n\/?a$/i.test(t)) return '';
+            return t;
+        }
+
         async function extractDataFromPDF(file) {
             const arrayBuffer = await file.arrayBuffer();
             const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
@@ -180,14 +188,14 @@
             const refNoRaw = refNoMatch ? refNoMatch[1].trim() : 'N/A';
             const refNo    = refNoRaw.replace(/X$/i, '');
 
-            // Extract both ID fields — pass both to receipt; receipt.html decides which to show
+            // Extract both ID fields — pass empty string (not 'N/A') so receipt.html can reliably detect presence
             const passportNoRaw = passportNoMatch ? passportNoMatch[1].trim() : '';
             const icNoRaw       = icNoMatch       ? icNoMatch[1].trim()       : '';
-            // Keep hyphens in IC No for display (e.g. 51-237267), remove only other special chars
             const icNoFormatted = icNoRaw.replace(/[^a-zA-Z0-9\-]/g, '');
 
-            const passportNo = passportNoRaw || 'N/A';
-            const icNo       = icNoFormatted  || 'N/A';
+            // Use cleanId so 'N/A' text from PDF becomes empty string
+            const passportNo = cleanId(passportNoRaw);   // '' if absent/NA
+            const icNo       = cleanId(icNoFormatted);   // '' if absent/NA
 
             // Strip hyphens from Payout Code / PIN
             const payoutCodeRaw = payoutCodeMatch ? payoutCodeMatch[1].trim() : 'N/A';
@@ -203,8 +211,8 @@
                 refNo,
                 date:               dateMatch              ? dateMatch[1].trim()              : 'N/A',
                 senderName:         senderNameMatch        ? senderNameMatch[1].trim()        : 'N/A',
-                passportNo,
-                icNo,
+                passportNo,   // clean empty string or real value — never 'N/A'
+                icNo,         // clean empty string or real value — never 'N/A'
                 senderAddress:      senderAddressMatch     ? senderAddressMatch[1].trim().replace(/\n/g, ', ') : 'N/A',
                 citizenship:        citizenshipMatch       ? citizenshipMatch[1].trim()       : 'N/A',
                 senderMobile:       senderMobileMatch      ? senderMobileMatch[1].trim()      : 'N/A',
@@ -232,8 +240,8 @@
             document.getElementById('refNo').textContent             = data.refNo;
             document.getElementById('date').textContent              = data.date;
             document.getElementById('senderName').textContent        = data.senderName;
-            document.getElementById('passportNo').textContent        = data.passportNo;
-            document.getElementById('icNo').textContent              = data.icNo;
+            document.getElementById('passportNo').textContent        = data.passportNo || 'N/A';
+            document.getElementById('icNo').textContent              = data.icNo       || 'N/A';
             document.getElementById('senderAddress').innerHTML       = data.senderAddress.replace(/, /g, '<br>');
             document.getElementById('citizenship').textContent       = data.citizenship;
             document.getElementById('senderMobile').textContent      = data.senderMobile;
@@ -259,15 +267,15 @@
 
         function downloadReceipt(data) {
             const receiptUrl = 'receipt.html?' + new URLSearchParams({
-                ref:               data.refNo,          // trailing X already removed
-                date:              data.date,            // date extracted from PDF
-                payoutCode:        data.payoutCode,      // hyphens already removed
-                pin:               data.payoutCode,      // same cleaned value for payout pin
+                ref:               data.refNo,
+                date:              data.date,
+                payoutCode:        data.payoutCode,
+                pin:               data.payoutCode,
                 paymentChannel:    data.paymentChannel,
                 senderName:        data.senderName,
                 senderMobile:      data.senderMobile,
-                passport:          data.passportNo,      // pass both; receipt decides which to show
-                nationalId:        data.icNo,            // pass both; receipt decides which to show
+                passport:          data.passportNo,   // '' or real value — never 'N/A'
+                nationalId:        data.icNo,         // '' or real value — never 'N/A'
                 address:           data.senderAddress,
                 nationality:       data.citizenship,
                 amount:            data.payoutAmount.replace(/\s*BDT$/i, '').trim(),
